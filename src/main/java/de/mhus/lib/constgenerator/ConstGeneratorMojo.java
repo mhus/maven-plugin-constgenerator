@@ -49,6 +49,7 @@ import org.jtwig.JtwigTemplate;
 import de.mhus.lib.basics.consts.GenerateConst;
 import de.mhus.lib.basics.consts.GenerateHidden;
 import de.mhus.lib.basics.consts.Identifier;
+import de.mhus.lib.basics.consts.Identifier.TYPE;
 
 @Mojo(
 		name = "const-generate", 
@@ -105,6 +106,12 @@ public class ConstGeneratorMojo extends AbstractMojo {
 	@Parameter
 	protected String template = null;
 	
+    @Parameter
+    protected String shortcuts = null;
+    
+    @Parameter
+    protected String export = null;
+    
 	private URLClassLoader loader;
 	
 	@Override
@@ -179,7 +186,7 @@ public class ConstGeneratorMojo extends AbstractMojo {
 	                		Field[] fields = constClass.getDeclaredFields();
 	                		for (Field f : fields)
 	                			if (java.lang.reflect.Modifier.isStatic(f.getModifiers())) {
-	                				String value = ((Identifier)f.get(null)).toString();
+	                				String value = ((Identifier)f.get(null)).getId();
 	                				constFields.put(f.getName(), value);
 	                			}
 	                } catch (ClassNotFoundException e) {
@@ -193,12 +200,12 @@ public class ConstGeneratorMojo extends AbstractMojo {
 	                }
 	                
 	                // find class fields
-	                Map<String,String> fields = analyzeClass(clazz);
+	                Map<String,EntryDefinition> fields = analyzeClass(clazz);
 	                
 	                // compare
 	                if (!force && 
-	                		compareList(constFields.keySet(),fields.keySet()) && 
-	                		compareList(constFields.values(),fields.values())
+	                		compareListKeys(constFields.keySet(),fields.keySet()) && 
+	                		compareListValues(constFields.values(),fields.values())
 	                	   ) {
 	                		if (debug)
 	                			getLog().info("not changed");
@@ -254,7 +261,7 @@ public class ConstGeneratorMojo extends AbstractMojo {
 		
 	}
 
-    private boolean compareList(Collection<String> set1, Collection<String> set2) {
+    private boolean compareListKeys(Collection<String> set1, Collection<String> set2) {
     		if (set1.size() != set2.size()) {
     			if (debug) {
     				getLog().info("--- different size");
@@ -275,11 +282,32 @@ public class ConstGeneratorMojo extends AbstractMojo {
 		return true;
 	}
 
-	private Map<String, String> analyzeClass(Class<?> clazz) {
+    private boolean compareListValues(Collection<String> set1, Collection<EntryDefinition> set2) {
+        if (set1.size() != set2.size()) {
+            if (debug) {
+                getLog().info("--- different size");
+                getLog().info("--- 1: " + set1);
+                getLog().info("--- 2: " + set2);
+            }
+            return false;
+        }
+        for (EntryDefinition key : set2)
+            if (!set1.contains(key.name)) {
+                if (debug) {
+                    getLog().info("--- key not found " + key);
+                    getLog().info("--- 1: " + set1);
+                    getLog().info("--- 2: " + set2);
+                }
+                return false;
+            }
+        return true;
+    }
+    
+	private Map<String, EntryDefinition> analyzeClass(Class<?> clazz) {
 		
 		GenerateConst config = clazz.getAnnotation(GenerateConst.class);
 		
-    		TreeMap<String,String> out = new TreeMap<String,String>();
+    		TreeMap<String,EntryDefinition> out = new TreeMap<String,EntryDefinition>();
     		for (Field field : findFields(clazz)) {
     			
     			String name = field.getName();
@@ -290,48 +318,104 @@ public class ConstGeneratorMojo extends AbstractMojo {
     			if (ignore(config, name)) continue;
     			if (field.getAnnotation(GenerateHidden.class) != null) continue;
     			
-    			if (config.restricted() || Modifier.isPublic(field.getModifiers()) )
-    				out.put("FIELD_" + name, orgName);
+    			if (
+    			        (config.restricted() || Modifier.isPublic(field.getModifiers()) )
+    			        &&
+    			        containsType(export,config.export(),Identifier.TYPE.FIELD))
+    				out.put("FIELD_" + name, new EntryDefinition(Identifier.TYPE.FIELD,orgName));
     			
     			if (!hasAnnotation(config, field.getAnnotations())) continue;
 
-    			out.put("_" + name, orgName);
+    			if (containsType(shortcuts,config.shortcuts(),Identifier.TYPE.FIELD))
+    			    out.put("_" + name, new EntryDefinition(Identifier.TYPE.FIELD,orgName));
 
     		}
     		for (Method meth : findMethods(clazz)) {
 				String name = meth.getName();
 				if (name.contains("$")) continue;
 				
-				if (name.startsWith("get") || name.startsWith("set")) name = name.substring(3);
-				else
-				if (name.startsWith("is")) name = name.substring(2);
+				boolean isGetter = false;
+				boolean isSetter = false;
+				boolean isAction = false;
+				Identifier.TYPE type = null;
+				
+				if (name.startsWith("get")) {
+				    name = name.substring(3);
+				    isGetter = true;
+				    type = TYPE.GETTER;
+				} else
+			    if (name.startsWith("set")) { 
+			        name = name.substring(3);
+			        isSetter = true;
+			        type = TYPE.SETTER;
+			    } else
+				if (name.startsWith("is")) {
+				    name = name.substring(2);
+				    isGetter = true;
+				    type = TYPE.GETTER;
+				} else {
+				    isAction = true;
+				    type = TYPE.ACTION;
+				}
 				String orgName = name;
 				name = toName(name);
 				
 				if (ignore(config, name)) continue;
 				if (meth.getAnnotation(GenerateHidden.class) != null) continue;
 	
-				if (config.restricted() || Modifier.isPublic(meth.getModifiers()) )
-					out.put("METHOD_" + toName(meth.getName()), meth.getName());
+				if (
+				        (config.restricted() || Modifier.isPublic(meth.getModifiers()))
+				        &&
+				        (
+				                isGetter && containsType(export, config.export(), TYPE.GETTER) 
+				                ||
+                                isSetter && containsType(export, config.export(), TYPE.SETTER) 
+                                ||
+                                isAction && containsType(export, config.export(), TYPE.ACTION) 
+				        )
+				    )
+					out.put("METHOD_" + toName(meth.getName()), new EntryDefinition(type, meth.getName()));
 				
 				if (!hasAnnotation(config, meth.getAnnotations())) continue;
 	
-				out.put("_" + name, orgName);
+				if (
+                    isGetter && containsType(shortcuts, config.shortcuts(), TYPE.GETTER) 
+                    ||
+                    isSetter && containsType(shortcuts, config.shortcuts(), TYPE.SETTER) 
+                    ||
+                    isAction && containsType(shortcuts, config.shortcuts(), TYPE.ACTION) 
+                    )
+				    out.put("_" + name, new EntryDefinition(type, orgName));
 
     		}
     		
-    		out.put("CLASS_NAME", clazz.getName());
-    		out.put("CLASS_PATH", clazz.getCanonicalName());
-    		out.put("CLASS_EXTENDS", clazz.getSuperclass().getCanonicalName());
-    		out.put("PROJECT_VERSION", project.getVersion());
-    		out.put("PROJECT_ARTIFACT", project.getArtifactId());
-    		out.put("PROJECT_GROUP", project.getGroupId());
-    		out.put("PROJECT_DESCRIPTION", project.getDescription());
-
+            if (containsType(export,config.export(),Identifier.TYPE.CLASS)) {
+                out.put("CLASS_NAME", new EntryDefinition(TYPE.CLASS,clazz.getName()));
+    		    out.put("CLASS_PATH", new EntryDefinition(TYPE.CLASS,clazz.getCanonicalName()));
+    		    out.put("CLASS_EXTENDS", new EntryDefinition(TYPE.CLASS,clazz.getSuperclass().getCanonicalName()));
+	        }
+            if (containsType(export,config.export(),Identifier.TYPE.MAVEN)) {
+        		out.put("PROJECT_VERSION", new EntryDefinition(TYPE.MAVEN,project.getVersion()));
+        		out.put("PROJECT_ARTIFACT", new EntryDefinition(TYPE.MAVEN,project.getArtifactId()));
+        		out.put("PROJECT_GROUP", new EntryDefinition(TYPE.MAVEN,project.getGroupId()));
+        		out.put("PROJECT_DESCRIPTION", new EntryDefinition(TYPE.MAVEN,project.getDescription()));
+            }
 		return out;
 	}
 
-	private boolean hasAnnotation(GenerateConst config, Annotation[] annotations) {
+	private boolean containsType(String string, Identifier.TYPE[] config, TYPE type) {
+	    if (type == null) return false;
+	    String t = type.toString();
+	    if (string == null || !string.contains(t)) {
+	        if (config == null || config.length == 0) return true;
+	        for (TYPE tt : config)
+	            if (tt.equals(type)) return true;
+	        return false;
+	    }
+        return true;
+    }
+
+    private boolean hasAnnotation(GenerateConst config, Annotation[] annotations) {
 		if (config == null || config.annotation().length == 0) return true;
 		
 		// x^n !!!

@@ -10,7 +10,7 @@ import de.mhus.lib.basics.consts.ConstBase;
 
 public class {{ constName }} extends ConstBase {
 {% for name,value in fields %}
-  public static final Identifier {{ name }} = new Identifier({{ baseClass }}.class,"{{ value }}");
+  public static final Identifier {{ name }} = new Identifier(Identifier.TYPE.{{ value.type }}, {{ baseClass }}.class,"{{ value.name }}");
 {%- endfor %}
 
 }
