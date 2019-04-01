@@ -10,7 +10,7 @@
   <artifactId>constgenerator-maven-plugin</artifactId>
   <packaging>maven-plugin</packaging>
   <name>ConstGenerator</name>
-  <version>3.6.0</version>
+  <version>3.6.1-SNAPSHOT</version>
   <description>A tool which generates constantes out of java classes.</description>
   <url>http://www.mhus.de</url>
   <build>
