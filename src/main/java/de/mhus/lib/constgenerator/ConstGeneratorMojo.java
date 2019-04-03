@@ -327,7 +327,7 @@ public class ConstGeneratorMojo extends AbstractMojo {
     			if (!hasAnnotation(config, field.getAnnotations())) continue;
 
     			if (containsType(shortcuts,config.shortcuts(),Identifier.TYPE.FIELD))
-    			    out.put("_" + name, new EntryDefinition(Identifier.TYPE.FIELD,orgName));
+    			    putShortcut(out, name, Identifier.TYPE.FIELD, orgName);
 
     		}
     		for (Method meth : findMethods(clazz)) {
@@ -385,7 +385,7 @@ public class ConstGeneratorMojo extends AbstractMojo {
                     ||
                     isAction && containsType(shortcuts, config.shortcuts(), TYPE.ACTION) 
                     )
-				    out.put("_" + name, new EntryDefinition(type, orgName));
+				    putShortcut(out,name,type,orgName);
 
     		}
     		
@@ -403,7 +403,13 @@ public class ConstGeneratorMojo extends AbstractMojo {
 		return out;
 	}
 
-	private boolean containsType(String string, Identifier.TYPE[] config, TYPE type) {
+	private void putShortcut(TreeMap<String, EntryDefinition> out, String name, TYPE type, String orgName) {
+	    EntryDefinition current = out.get("_" + name);
+	    if (current != null && current.type.ordinal() >= type.ordinal()) return; 
+        out.put("_" + name, new EntryDefinition(type, orgName));
+    }
+
+    private boolean containsType(String string, Identifier.TYPE[] config, TYPE type) {
 	    if (type == null) return false;
 	    String t = type.toString();
 	    if (string == null || !string.contains(t)) {
