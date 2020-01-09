@@ -3,3 +3,4 @@
 .settings/
 target/
 .externalToolBuilders/
+dependency-reduced-pom.xml
