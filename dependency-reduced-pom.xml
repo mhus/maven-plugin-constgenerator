@@ -3,7 +3,7 @@
   <parent>
     <artifactId>mhus-oss</artifactId>
     <groupId>de.mhus.lib</groupId>
-    <version>3.6.0</version>
+    <version>7.0.0</version>
     <relativePath>../pom.xml/pom.xml</relativePath>
   </parent>
   <modelVersion>4.0.0</modelVersion>
@@ -206,6 +206,12 @@
           <groupId>org.apiguardian</groupId>
         </exclusion>
       </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.hamcrest</groupId>
+      <artifactId>hamcrest-all</artifactId>
+      <version>1.3</version>
+      <scope>test</scope>
     </dependency>
   </dependencies>
   <properties>

@@ -21,7 +21,7 @@
 	<parent>
         <groupId>de.mhus.lib</groupId>
         <artifactId>mhus-oss</artifactId>
-        <version>3.6.0</version>
+        <version>7.0.0</version>
 	</parent>
     <groupId>de.mhus.mvn.plugin</groupId>
 	<version>3.6.2</version>
@@ -85,7 +85,7 @@
         <!-- embedded -->
         <dependency>
         	<groupId>de.mhus.lib</groupId>
-        	<artifactId>mhu-lib-annotations</artifactId>
+        	<artifactId>lib-annotations</artifactId>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.jtwig/jtwig-core -->
